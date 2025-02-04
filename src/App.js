@@ -1,264 +1,398 @@
-import React, { useState, useRef, useEffect } from 'react';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import './App.css';
+import React, { useState } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import styled from '@emotion/styled';
 
-function App() {
-  const [tasks, setTasks] = useState([
-    { id: 1, title: 'Faire 100 pompes', text: 'Faire 5 séries de 20 pompes ', status: 'todo' },
-    { id: 2, title: 'Faire le Ménage au salon, cuisine et salle de bain', text: '', status: 'todo' },
-    { id: 3, title: 'Dessin d\'observation', text: 'Faire 3 dessins d\'objets des alentours', status: 'todo' },
-  ]);
+// Les styles existants restent identiques jusqu'au Ticket
+const Container = styled.div`
+  padding: 20px;
+  background: #f7f8fc;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
 
-  const [showModal, setShowModal] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskText, setNewTaskText] = useState('');
-  const [selectedTask, setSelectedTask] = useState(null); // Tâche sélectionnée pour la popin
-  const inputRef = useRef(null);
+const BoardHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 900px;
+`;
 
-  // Focus automatique sur le champ de titre lorsque la modal s'ouvre
-  useEffect(() => {
-    if (showModal && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [showModal]);
+const BoardTitle = styled.h1`
+  color: #333;
+  margin: 0;
+`;
 
-  const moveTask = (id, newStatus) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === id ? { ...task, status: newStatus } : task
-      )
+const AddButton = styled.button`
+  padding: 10px 20px;
+  background: #4a9eff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  
+  &:hover {
+    background: #3d8be0;
+  }
+`;
+
+const ColumnContainer = styled.div`
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  max-width: 1200px;
+`;
+
+const Column = styled.div`
+  flex: 1;
+  min-width: 0px;
+  background: #ebecf0;
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+const ColumnHeader = styled.h2`
+  margin: 0 0 20px 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #bdbdbd;
+  color: #333;
+  font-size: 18px;
+`;
+
+const TicketList = styled.div`
+  min-height: 100px;
+  background: ${props => props.isDraggingOver ? '#f0f7ff' : 'transparent'};
+  transition: background-color 0.2s ease;
+  border-radius: 5px;
+  padding: 8px;
+`;
+
+// Modification du style Ticket pour gérer le positionnement relatif
+const Ticket = styled.div`
+  position: relative;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 10px;
+  background: white;
+  box-shadow: ${props => props.isDragging ? '0 5px 10px rgba(0, 0, 0, 0.15)' : '0 2px 3px rgba(0, 0, 0, 0.05)'};
+  user-select: none;
+  
+  &:hover {
+    background: #fafafa;
+  }
+
+  h3 {
+    font-size: 14px;
+    margin: 0 0 8px 0;
+    padding-right: 24px; // Espace pour le bouton de suppression
+    overflow-wrap: break-word;
+  }
+    
+  p {
+    font-size: 12px;
+    margin: 0;
+    color: #666;
+    overflow-wrap: break-word;
+  }
+`;
+
+
+
+// Nouveau style pour le bouton de suppression
+const DeleteButton = styled.button`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: #666;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+    color: #ff4444;
+  }
+
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 1px;
+  }
+
+  &::before {
+    transform: rotate(45deg);
+  }
+
+  &::after {
+    transform: rotate(-45deg);
+  }
+`;
+
+const EditForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-right:40px;
+`;
+
+const EditInput = styled.input`
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+`;
+
+const EditTextarea = styled.textarea`
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  resize: vertical;
+  min-height: 60px;
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+`;
+
+const Button = styled.button`
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  background: ${props => props.variant === 'cancel' ? '#f0f0f0' : '#4a9eff'};
+  color: ${props => props.variant === 'cancel' ? '#333' : 'white'};
+
+  &:hover {
+    background: ${props => props.variant === 'cancel' ? '#e0e0e0' : '#3d8be0'};
+  }
+`;
+
+// Modification du composant EditableTicket pour inclure le bouton de suppression
+const EditableTicket = ({ ticket, isEditing, onSave, onCancel, onDelete, provided, snapshot }) => {
+  const [editedTitle, setEditedTitle] = useState(ticket.title);
+  const [editedDescription, setEditedDescription] = useState(ticket.description);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...ticket,
+      title: editedTitle,
+      description: editedDescription
+    });
+  };
+
+  // Empêcher la propagation du double-clic lors du clic sur le bouton de suppression
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    onDelete(ticket.id);
+  };
+
+  if (isEditing) {
+    return (
+      <Ticket
+        ref={provided.innerRef}
+        {...provided.draggableProps}
+        {...provided.dragHandleProps}
+        isDragging={snapshot.isDragging}
+      >
+        <DeleteButton onClick={handleDeleteClick} type="button" />
+        <EditForm onSubmit={handleSubmit}>
+          <EditInput
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            placeholder="Titre du ticket"
+            autoFocus
+          />
+          <EditTextarea
+            value={editedDescription}
+            onChange={(e) => setEditedDescription(e.target.value)}
+            placeholder="Description"
+          />
+          <ButtonGroup>
+            <Button type="submit">Enregistrer</Button>
+            <Button type="button" variant="cancel" onClick={onCancel}>
+              Annuler
+            </Button>
+          </ButtonGroup>
+        </EditForm>
+      </Ticket>
     );
-  };
-
-  const deleteTask = (id) => {
-    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== id));
-  };
-
-  const addTask = () => {
-    if (newTaskTitle.trim()) {
-      const newTask = {
-        id: tasks.length + 1,
-        title: newTaskTitle,
-        text: newTaskText,
-        status: 'todo',
-      };
-      setTasks([...tasks, newTask]);
-      setNewTaskTitle('');
-      setNewTaskText('');
-      setShowModal(false);
-    }
-  };
-
-  // Gestion de la touche "Entrée"
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      addTask();
-    }
-  };
-
-  // Ouvrir la popin avec les détails de la tâche
-  const openTaskDetails = (task) => {
-    if (task.text) {
-      setSelectedTask(task);
-    }
-  };
-
-  // Fermer la popin
-  const closeTaskDetails = () => {
-    setSelectedTask(null);
-  };
+  }
 
   return (
-    <div className="container mt-5">
-      {/* Header avec titre */}
-      <div className="header mb-4">
-        <h1 className="text-center">Ma To-Do List</h1>
-        <hr className="header-divider" />
-      </div>
+    <Ticket
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      {...provided.dragHandleProps}
+      isDragging={snapshot.isDragging}
+    >
+      <DeleteButton onClick={handleDeleteClick} type="button" />
+      <h3>{ticket.title}</h3>
+      <p>{ticket.description}</p>
+    </Ticket>
+  );
+};
 
-      {/* Bouton pour ouvrir la modal */}
-      <button
-        className="btn btn-primary mb-4 add-task-button"
-        onClick={() => setShowModal(true)}
-      >
-        + Ajouter une tâche
-      </button>
+const initialTickets = [
+  { id: 'ticket-1', title: 'Corriger le bug #123', description: 'Bug critique sur la page d\'accueil', status: 'todo' },
+  { id: 'ticket-2', title: 'Mettre à jour la documentation', description: 'Documentation API REST', status: 'todo' },
+  { id: 'ticket-3', title: 'Optimiser les performances', description: 'Améliorer le temps de chargement', status: 'en cours' },
+  { id: 'ticket-4', title: 'Tests unitaires', description: 'Écrire les tests pour le module auth', status: 'terminé' },
+];
 
-      {/* Tableau avec bordures et fond gris */}
-      <div className="row board">
-        <div className="col-lg-4 column">
-          <section className="h-100">
-            <h2>À faire</h2>
-            <TaskList
-              tasks={tasks}
-              status="todo"
-              moveTask={moveTask}
-              deleteTask={deleteTask}
-              openTaskDetails={openTaskDetails}
-            />
-          </section>
-        </div>
-        <div className="col-lg-4 column">
-          <section className="h-100">
-            <h2>En cours</h2>
-            <TaskList
-              tasks={tasks}
-              status="en cours"
-              moveTask={moveTask}
-              deleteTask={deleteTask}
-              openTaskDetails={openTaskDetails}
-            />
-          </section>
-        </div>
-        <div className="col-lg-4 column">
-          <section className="h-100">
-            <h2>Terminé</h2>
-            <TaskList
-              tasks={tasks}
-              status="terminé"
-              moveTask={moveTask}
-              deleteTask={deleteTask}
-              openTaskDetails={openTaskDetails}
-            />
-          </section>
-        </div>
-      </div>
+function TicketBoard() {
+  const [tickets, setTickets] = useState(initialTickets);
+  const [editingTicketId, setEditingTicketId] = useState(null);
+  
+  const handleDragEnd = (result) => {
+    const { source, destination, draggableId } = result;
 
-      {/* Modal pour ajouter une tâche */}
-      <div
-        className={`modal ${showModal ? 'show' : ''}`}
-        style={{ display: showModal ? 'block' : 'none', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-      >
-        <div className="modal-dialog modal-notion">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Ajouter une tâche</h5>
-              <button
-                type="button"
-                className="btn-close"
-                onClick={() => setShowModal(false)}
-              ></button>
-            </div>
-            <div className="modal-body">
-              <input
-                type="text"
-                className="form-control mb-3"
-                placeholder="Titre de la tâche"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                onKeyDown={handleKeyDown}
-                ref={inputRef}
-              />
-              <textarea
-                className="form-control"
-                placeholder="Description de la tâche (optionnel)"
-                value={newTaskText}
-                onChange={(e) => setNewTaskText(e.target.value)}
-              />
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowModal(false)}
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={addTask}
-              >
-                Ajouter
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+    if (!destination) return;
 
-      {/* Popin pour afficher les détails de la tâche */}
-      {selectedTask && (
-        <div
-          className="modal show"
-          style={{ display: 'block', backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-        >
-          <div className="modal-dialog modal-notion">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{selectedTask.title}</h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={closeTaskDetails}
-                ></button>
-              </div>
-              <div className="modal-body">
-                <p>{selectedTask.text}</p>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={closeTaskDetails}
-                >
-                  Fermer
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const ticketToMove = tickets.find(t => t.id === draggableId);
+    const newTickets = tickets.filter(t => t.id !== draggableId);
+    
+    const updatedTicket = {
+      ...ticketToMove,
+      status: destination.droppableId
+    };
+    
+    const destinationTickets = newTickets.filter(t => t.status === destination.droppableId);
+    destinationTickets.splice(destination.index, 0, updatedTicket);
+    
+    const finalTickets = [
+      ...newTickets.filter(t => t.status !== destination.droppableId),
+      ...destinationTickets
+    ];
+    
+    setTickets(finalTickets);
+  };
+
+  const addNewTicket = () => {
+    const newTicket = {
+      id: `ticket-${Date.now()}`,
+      title: 'Nouveau ticket',
+      description: 'Double-cliquez pour éditer',
+      status: 'todo'
+    };
+    setTickets([...tickets, newTicket]);
+  };
+
+  const handleDoubleClick = (ticketId) => {
+    if (!editingTicketId) {
+      setEditingTicketId(ticketId);
+    }
+  };
+
+  const handleSave = (updatedTicket) => {
+    setTickets(tickets.map(ticket => 
+      ticket.id === updatedTicket.id ? updatedTicket : ticket
+    ));
+    setEditingTicketId(null);
+  };
+
+  const handleCancel = () => {
+    setEditingTicketId(null);
+  };
+
+  // Nouvelle fonction pour gérer la suppression
+  const handleDelete = (ticketId) => {
+    setTickets(tickets.filter(ticket => ticket.id !== ticketId));
+    if (editingTicketId === ticketId) {
+      setEditingTicketId(null);
+    }
+  };
+
+  const columns = ['todo', 'en cours', 'terminé'];
+
+  return (
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <Container>
+        <BoardHeader>
+          <BoardTitle>Tableau des tickets</BoardTitle>
+          <AddButton onClick={addNewTicket}>
+            + Ajouter un ticket
+          </AddButton>
+        </BoardHeader>
+        
+        <ColumnContainer>
+          {columns.map(status => (
+            <Column key={status}>
+              <ColumnHeader>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </ColumnHeader>
+              <Droppable droppableId={status}>
+                {(provided, snapshot) => (
+                  <TicketList
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    isDraggingOver={snapshot.isDraggingOver}
+                  >
+                    {tickets
+                      .filter(ticket => ticket.status === status)
+                      .map((ticket, index) => (
+                        <Draggable 
+                          key={ticket.id} 
+                          draggableId={ticket.id} 
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div onDoubleClick={() => handleDoubleClick(ticket.id)}>
+                              <EditableTicket
+                                ticket={ticket}
+                                isEditing={editingTicketId === ticket.id}
+                                onSave={handleSave}
+                                onCancel={handleCancel}
+                                onDelete={handleDelete}
+                                provided={provided}
+                                snapshot={snapshot}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                    {provided.placeholder}
+                  </TicketList>
+                )}
+              </Droppable>
+            </Column>
+          ))}
+        </ColumnContainer>
+      </Container>
+    </DragDropContext>
   );
 }
 
-function TaskList({ tasks, status, moveTask, deleteTask, openTaskDetails }) {
-  const getNextStatus = (currentStatus) => {
-    switch (currentStatus) {
-      case 'todo':
-        return 'en cours';
-      case 'en cours':
-        return 'terminé';
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="task-list">
-      {tasks
-        .filter((task) => task.status === status)
-        .map((task) => (
-          <div key={task.id} className="card task-card">
-            <div className="card-body">
-              {/* Bouton pour supprimer la tâche */}
-              <button
-                className="btn btn-sm text-muted bg-white delete-button"
-                onClick={() => deleteTask(task.id)}
-              >
-                ×
-              </button>
-              {/* Titre de la tâche */}
-              <p
-                className={`task-title ${task.text ? 'has-text' : ''}`}
-                onClick={() => openTaskDetails(task)}
-              >
-                {task.title}
-              </p>
-              {/* Bouton pour déplacer la tâche vers la colonne de droite */}
-              {getNextStatus(task.status) && (
-                <button
-                  className="btn btn-sm text-primary bg-white move-button"
-                  onClick={() => moveTask(task.id, getNextStatus(task.status))}
-                >
-                  →
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-    </div>
-  );
-}
-
-export default App;
+export default TicketBoard;

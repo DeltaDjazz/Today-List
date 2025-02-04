@@ -39,13 +39,18 @@ body {
 }
 
 
-.column section{
+.board .column{
   background:#f0f2f5;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px #0000001a;
+  padding: 15px;
+}
+.column section {
+  background: #f0f2f5;
   padding: 15px;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
-
 
 .column h2 {
   font-size: 18px;
@@ -60,6 +65,14 @@ body {
   border-radius: 8px;
   margin-bottom: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: white;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: grab;
+}
+
+.task-card.dragging {
+  transform: rotate(3deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .task-text {
@@ -87,20 +100,6 @@ body {
 
 .delete-button:hover {
   color: #ff4d4d;
-}
-
-.move-button {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  font-size: 16px;
-  color: #4a90e2;
-  background: none;
-  border: none;
-}
-
-.move-button:hover {
-  color: #357abd;
 }
 
 /* Styles pour le titre de la tâche */
@@ -145,3 +144,22 @@ body {
 .modal-footer {
   border-top: 1px solid #e0e0e0;
 }
+
+/* Styles pour le drag & drop */
+.task-list {
+  min-height: 100px;
+  padding: 10px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.task-list.dropping {
+  background-color: #f8f9fa;
+}
+
+
+
+
+
+
+
